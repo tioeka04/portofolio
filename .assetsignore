@@ -1,0 +1,8 @@
+wrangler.jsonc
+.assetsignore
+.git
+.github
+README.md
+supabase
+github-workflow
+node_modules
