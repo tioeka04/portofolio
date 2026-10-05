@@ -81,7 +81,14 @@
       const err = prof.error || proj.error || exp.error || skills.error;
       if (err) throw err;
 
-      if (prof.data && prof.data.name) result.profile = prof.data;
+      if (prof.data) {
+        // Field yang kosong di database tetap memakai isi data.js (supaya tidak tampil kosong)
+        const merged = { ...result.profile };
+        Object.entries(prof.data).forEach(([k, v]) => {
+          if (typeof v === 'boolean' || (v !== null && v !== '')) merged[k] = v;
+        });
+        result.profile = merged;
+      }
       if (proj.data && proj.data.length) result.projects = proj.data;
       if (exp.data && exp.data.length) result.experiences = exp.data;
       if (skills.data && skills.data.length) result.skill_groups = skills.data;
