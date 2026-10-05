@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+
+# Setelah punya domain, aktifkan baris ini:
+# Sitemap: https://DOMAIN-KAMU.com/sitemap.xml

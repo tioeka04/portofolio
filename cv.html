@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resume — Tio Eka Friadi</title>
+  <meta name="description" content="Resume of Tio Eka Friadi, backend & full stack developer.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <style>
+    /* Gaya CV sengaja polos (Arial, hitam-putih) supaya ramah ATS & rapi saat dicetak. */
+    body { font-family: Arial, Helvetica, sans-serif; color: #000; background: #fff; line-height: 1.45; margin: 0 auto; padding: 32px 24px; max-width: 820px; font-size: 13px; }
+    h1 { font-size: 24px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: .02em; text-align: center; }
+    .headline { text-align: center; font-size: 14px; margin: 0 0 4px; }
+    .contact { text-align: center; font-size: 12.5px; margin: 0 0 18px; }
+    .contact a { color: #000; }
+    h2 { font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 3px; margin: 18px 0 8px; }
+    h3 { font-size: 13.5px; margin: 10px 0 2px; display: flex; justify-content: space-between; gap: 12px; }
+    h3 .date { font-weight: normal; white-space: nowrap; }
+    .sub { font-style: italic; margin: 0 0 3px; }
+    p { margin: 0 0 6px; }
+    ul { margin: 3px 0 8px; padding-left: 18px; }
+    li { margin-bottom: 2px; }
+    .toolbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 24px; }
+    .toolbar button, .toolbar a { background: #1e2a8a; color: #fff; border: 0; padding: 9px 16px; border-radius: 6px; font: 600 13px Arial, sans-serif; cursor: pointer; text-decoration: none; }
+    .toolbar a { background: #fff; color: #1e2a8a; border: 1px solid #1e2a8a; }
+    @media print { .no-print { display: none !important; } body { padding: 0; } @page { margin: 14mm; } a { text-decoration: none; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button type="button" onclick="window.print()">Save as PDF / Print</button>
+    <a href="index.html">Back to portfolio</a>
+  </div>
+  <main id="cv">Loading resume…</main>
+
+  <script src="js/vendor/supabase.min.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+  (async function () {
+    'use strict';
+    const { esc, safeUrl, loadContent } = window.Portfolio;
+    const d = await loadContent();
+    const p = d.profile;
+    const plain = (u) => String(u || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+    const link = (u) => safeUrl(u) ? `<a href="${esc(safeUrl(u))}">${esc(plain(u))}</a>` : '';
+    const contact = [p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '', p.location && esc(p.location), link(p.linkedin_url), link(p.github_url)].filter(Boolean).join(' | ');
+    const range = (x) => [x.start_label, x.start_label ? (x.end_label || 'Present') : x.end_label].filter(Boolean).join(' – ');
+    const expBlock = (x) => `
+      <h3><span>${esc(x.title)}${x.organization ? ' — ' + esc(x.organization) : ''}</span><span class="date">${esc(range(x))}</span></h3>
+      ${x.description ? `<p>${esc(x.description)}</p>` : ''}
+      ${(x.highlights || []).filter(Boolean).length ? `<ul>${x.highlights.filter(Boolean).map((h) => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}`;
+
+    const edu = d.experiences.filter((x) => x.kind === 'education');
+    const work = d.experiences.filter((x) => x.kind === 'work');
+    const org = d.experiences.filter((x) => x.kind === 'organization' || x.kind === 'certification');
+
+    let html = `
+      <h1>${esc(p.name)}</h1>
+      <p class="headline">${esc(p.headline)}</p>
+      <p class="contact">${contact}</p>
+      <h2>Summary</h2><p>${esc(p.bio)}</p>
+      <h2>Technical Skills</h2>
+      <ul>${d.skill_groups.map((g) => `<li><strong>${esc(g.category)}:</strong> ${esc((g.items || []).join(', '))}</li>`).join('')}</ul>`;
+
+    if (d.projects.length) {
+      html += '<h2>Projects</h2>' + d.projects.map((x) => `
+        <h3><span>${esc(x.title)}</span><span class="date">${esc(x.year || (x.status === 'in-progress' ? 'In progress' : ''))}</span></h3>
+        <p class="sub">${esc((x.tech_stack || []).join(', '))}</p>
+        <ul><li>${esc(x.summary)}</li>${(x.highlights || []).filter(Boolean).map((h) => `<li>${esc(h)}</li>`).join('')}
+        ${safeUrl(x.repo_url) ? `<li>Code: ${link(x.repo_url)}</li>` : ''}</ul>`).join('');
+    }
+    if (work.length) html += '<h2>Experience</h2>' + work.map(expBlock).join('');
+    if (edu.length) html += '<h2>Education</h2>' + edu.map(expBlock).join('');
+    if (org.length) html += '<h2>Organizations & Certifications</h2>' + org.map(expBlock).join('');
+
+    document.getElementById('cv').innerHTML = html;
+    document.title = `Resume — ${p.name}`;
+  })();
+  </script>
+</body>
+</html>

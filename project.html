@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project — Tio Eka Friadi</title>
+  <meta name="description" content="Project case study by Tio Eka Friadi.">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" id="brand">Tio Eka Friadi</a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="index.html#projects">Projects</a></li>
+        <li><a href="index.html#experience">Experience</a></li>
+        <li><a href="index.html#contact">Contact</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="detail">
+    <div class="container">
+      <article class="detail-inner" id="project">
+        <p class="skeleton" style="height:40px;width:60%"></p>
+        <p class="skeleton" style="height:120px"></p>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p style="margin:0">© <span id="year"></span> Tio Eka Friadi</p>
+      <nav aria-label="Footer"><a href="index.html">Home</a><a href="index.html#contact">Contact</a></nav>
+    </div>
+  </footer>
+
+  <script src="js/vendor/supabase.min.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const { esc, safeUrl, richText, loadProjectBySlug, STATUS_LABEL } = window.Portfolio;
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const btn = document.getElementById('menu-btn');
+    const links = document.getElementById('nav-links');
+    btn.addEventListener('click', () => btn.setAttribute('aria-expanded', String(links.classList.toggle('open'))));
+
+    const root = document.getElementById('project');
+    const slug = new URLSearchParams(location.search).get('slug') || '';
+
+    loadProjectBySlug(slug).then((p) => {
+      if (!p) {
+        document.title = 'Project not found — Tio Eka Friadi';
+        root.innerHTML = '<a class="back-link" href="index.html#projects">← All projects</a><h1>Project not found</h1><p>This project may have been moved or unpublished.</p>';
+        return;
+      }
+      document.title = `${p.title} — Tio Eka Friadi`;
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta && p.summary) meta.setAttribute('content', p.summary);
+
+      const img = safeUrl(p.image_url), repo = safeUrl(p.repo_url), demo = safeUrl(p.demo_url);
+      const facts = [
+        ['Role', p.role], ['Category', p.category], ['Year', p.year],
+        ['Status', STATUS_LABEL[p.status] || '']
+      ].filter(([, v]) => v);
+      const highlights = (p.highlights || []).filter(Boolean);
+
+      root.innerHTML = `
+        <a class="back-link" href="index.html#projects">← All projects</a>
+        ${p.status === 'in-progress' ? '<span class="badge progress">In progress</span>' : ''}
+        <h1>${esc(p.title)}</h1>
+        <p class="lead">${esc(p.summary)}</p>
+        <div class="hero-actions">
+          ${repo ? `<a class="btn btn-primary" href="${esc(repo)}" target="_blank" rel="noopener">View source code</a>` : ''}
+          ${demo ? `<a class="btn btn-outline" href="${esc(demo)}" target="_blank" rel="noopener">Live demo</a>` : ''}
+        </div>
+        ${img ? `<img class="detail-cover" src="${esc(img)}" alt="Screenshot of ${esc(p.title)}">` : ''}
+        ${facts.length ? `<dl class="detail-meta">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+        ${(p.tech_stack || []).length ? `<h2 class="sr-only">Tech stack</h2><ul class="tags">${p.tech_stack.map((t) => `<li class="tag">${esc(t)}</li>`).join('')}</ul>` : ''}
+        ${highlights.length ? `<div class="prose"><h3>Highlights</h3><ul>${highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
+        <div class="prose">${richText(p.description)}</div>
+      `;
+    });
+  })();
+  </script>
+</body>
+</html>

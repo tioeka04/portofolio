@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin — Portfolio CMS</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <script>try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+</head>
+<body>
+
+  <!-- ============ STATE: Supabase belum dikonfigurasi ============ -->
+  <main class="auth-wrap" id="view-setup" hidden>
+    <div class="auth-card">
+      <h1>Admin belum aktif</h1>
+      <p>Supabase belum dikonfigurasi. Isi <code>SUPABASE_URL</code> dan <code>SUPABASE_ANON_KEY</code> di <code>js/supabase.js</code>, lalu jalankan <code>supabase/schema.sql</code>. Langkah lengkapnya ada di <code>README.md</code>.</p>
+      <a class="btn btn-outline" href="index.html">← Kembali ke website</a>
+    </div>
+  </main>
+
+  <!-- ============ STATE: Login ============ -->
+  <main class="auth-wrap" id="view-login" hidden>
+    <form class="auth-card" id="login-form" novalidate>
+      <h1>Masuk ke Admin</h1>
+      <p class="muted">Kelola project, profil, pengalaman, skill, dan pesan masuk.</p>
+      <div id="login-alert" class="alert alert-error" role="alert" hidden></div>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="login-submit">Masuk</button>
+      <a class="small-link" href="index.html">← Kembali ke website</a>
+    </form>
+  </main>
+
+  <!-- ============ STATE: Dashboard ============ -->
+  <div id="view-app" hidden>
+    <header class="admin-header">
+      <div class="admin-header-inner">
+        <a class="brand" href="index.html" target="_blank" rel="noopener" title="Buka website">Portfolio CMS ↗</a>
+        <nav class="tabs" role="tablist" aria-label="Bagian admin">
+          <button role="tab" data-tab="projects" aria-selected="true">Projects</button>
+          <button role="tab" data-tab="profile" aria-selected="false">Profil</button>
+          <button role="tab" data-tab="experiences" aria-selected="false">Pengalaman</button>
+          <button role="tab" data-tab="skills" aria-selected="false">Skills</button>
+          <button role="tab" data-tab="messages" aria-selected="false">Pesan <span class="count" id="unread-count" hidden></span></button>
+        </nav>
+        <div class="admin-user">
+          <span class="muted" id="admin-email"></span>
+          <button class="btn btn-outline btn-sm" id="logout-btn" type="button">Keluar</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <div id="import-banner" class="banner" hidden>
+        <div>
+          <strong>Database masih kosong.</strong>
+          Mau salin konten awal dari <code>js/data.js</code> ke database? Setelah itu semuanya bisa diedit dari sini.
+        </div>
+        <button class="btn btn-primary btn-sm" id="import-btn" type="button">Import konten awal</button>
+      </div>
+
+      <!-- PROJECTS -->
+      <section class="panel" data-panel="projects">
+        <div class="panel-head">
+          <div>
+            <h1>Projects</h1>
+            <p class="muted">Urutan di sini = urutan di website. Project "Featured" selalu tampil paling atas.</p>
+          </div>
+          <button class="btn btn-primary" id="new-project-btn" type="button">+ Project baru</button>
+        </div>
+        <div class="list" id="projects-admin-list"></div>
+      </section>
+
+      <!-- PROFILE -->
+      <section class="panel" data-panel="profile" hidden>
+        <div class="panel-head">
+          <div>
+            <h1>Profil</h1>
+            <p class="muted">Nama, headline, bio, link, foto, dan file CV (PDF).</p>
+          </div>
+        </div>
+        <form class="form" id="profile-form" novalidate></form>
+      </section>
+
+      <!-- EXPERIENCES -->
+      <section class="panel" data-panel="experiences" hidden>
+        <div class="panel-head">
+          <div>
+            <h1>Pengalaman & Pendidikan</h1>
+            <p class="muted">Kerja, pendidikan, organisasi, sertifikasi.</p>
+          </div>
+          <button class="btn btn-primary" id="new-experience-btn" type="button">+ Tambah</button>
+        </div>
+        <div class="list" id="experiences-admin-list"></div>
+      </section>
+
+      <!-- SKILLS -->
+      <section class="panel" data-panel="skills" hidden>
+        <div class="panel-head">
+          <div>
+            <h1>Skills</h1>
+            <p class="muted">Kelompok skill. Tulis hanya yang benar-benar pernah kamu pakai.</p>
+          </div>
+          <button class="btn btn-primary" id="new-skill-btn" type="button">+ Kelompok baru</button>
+        </div>
+        <div class="list" id="skills-admin-list"></div>
+      </section>
+
+      <!-- MESSAGES -->
+      <section class="panel" data-panel="messages" hidden>
+        <div class="panel-head">
+          <div>
+            <h1>Pesan masuk</h1>
+            <p class="muted">Dari form kontak di website. Klik "Balas" untuk membalas lewat email.</p>
+          </div>
+        </div>
+        <div class="list" id="messages-admin-list"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Editor dialog (dipakai ulang untuk project / pengalaman / skill) -->
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form method="dialog" id="editor-form" novalidate>
+      <div class="dialog-head">
+        <h2 id="editor-title">Edit</h2>
+        <button class="icon-btn" value="cancel" formnovalidate aria-label="Tutup">✕</button>
+      </div>
+      <div class="dialog-body" id="editor-fields"></div>
+      <div class="dialog-foot">
+        <div id="editor-alert" class="alert alert-error" role="alert" hidden></div>
+        <button class="btn btn-outline" value="cancel" formnovalidate>Batal</button>
+        <button class="btn btn-primary" id="editor-save" value="save">Simpan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/vendor/supabase.min.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
