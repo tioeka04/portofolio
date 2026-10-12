@@ -125,5 +125,11 @@
       .slice(0, 80);
   }
 
-  window.Portfolio = { esc, safeUrl, richText, loadContent, loadProjectBySlug, STATUS_LABEL, slugify };
+  /** Log untuk debugging. Aktifkan dengan membuka situs dengan ?debug=1, lalu buka DevTools → Console. */
+  const DEBUG = new URLSearchParams(location.search).has('debug');
+  function debug(...args) {
+    if (DEBUG) console.log('[portfolio]', ...args);
+  }
+
+  window.Portfolio = { esc, safeUrl, richText, loadContent, loadProjectBySlug, STATUS_LABEL, slugify, debug };
 })();

@@ -7,7 +7,15 @@
   <meta name="robots" content="noindex">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/site.css">
+  <script>
+    try {
+      const saved = localStorage.getItem('theme');
+      const system = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-bs-theme', saved || system);
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <main class="detail">
@@ -15,7 +23,10 @@
       <p class="eyebrow">404</p>
       <h1>Page not found</h1>
       <p class="lead">The page you're looking for doesn't exist or has moved.</p>
-      <div class="hero-actions"><a class="btn btn-primary" href="/">Back to home</a><a class="btn btn-outline" href="/#projects">See projects</a></div>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="/">Back to home</a>
+        <a class="btn btn-outline-primary" href="/#projects">See projects</a>
+      </div>
     </div>
   </main>
 </body>

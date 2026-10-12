@@ -9,14 +9,18 @@ project.html        Halaman detail / case study tiap project (?slug=...)
 cv.html             CV otomatis dari database (bisa Print → Save as PDF)
 admin.html          Admin CMS (login)
 404.html            Halaman tidak ditemukan
-css/style.css       Style publik (warna utama: --accent)
+css/site.css        Tema situs publik di atas Bootstrap (warna utama: --accent)
+css/style.css       Style lama, masih dipakai admin.html & cv.html
 css/admin.css       Style admin
+css/vendor/         Bootstrap 5.3 (lokal, tanpa CDN)
 js/supabase.js      ⚙️ KONFIGURASI: URL + anon key Supabase
 js/data.js          Konten cadangan (dipakai kalau database tidak bisa diakses)
 js/core.js          Helper bersama (escape HTML, load data, format teks)
-js/main.js          Logika halaman utama
+js/main.js          Logika halaman utama (profile, project, form kontak, tema)
+js/dashboard.js     Dashboard: 5 chart Chart.js (data skill bisa diedit di bagian atas file)
+js/project.js       Logika halaman detail project
 js/admin.js         Logika admin CMS
-js/vendor/          Library Supabase (disimpan lokal, tidak tergantung CDN)
+js/vendor/          Supabase, Bootstrap, Chart.js (disimpan lokal, tidak tergantung CDN)
 supabase/schema.sql Struktur database + keamanan (RLS) + storage
 github-workflow/    Keep-alive Supabase (pindahkan ke .github/workflows/ sebelum push ke GitHub)
 ```
