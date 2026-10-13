@@ -6,7 +6,7 @@
    ===================================================================== */
 (function () {
   'use strict';
-  const { esc, safeUrl, slugify } = window.Portfolio;
+  const { esc, safeUrl, slugify, projectImages, MAX_PROJECT_IMAGES } = window.Portfolio;
   const sb = window.supabaseClient;
   const BUCKET = 'portfolio';
   const MAX_UPLOAD = 5 * 1024 * 1024;
@@ -39,7 +39,8 @@
       { key: 'repo_url', label: 'Link source code (GitHub)', type: 'url', placeholder: 'https://github.com/…' },
       { key: 'demo_url', label: 'Link live demo', type: 'url', placeholder: 'https://…' }
     ] },
-    { key: 'image_url', label: 'Gambar / screenshot', type: 'upload', accept: 'image/png,image/jpeg,image/webp,image/gif', folder: 'projects', hint: 'Maks 5 MB. Rasio 16:9 paling bagus (mis. 1280×720).' },
+    { key: 'images', label: 'Foto project', type: 'gallery', max: MAX_PROJECT_IMAGES, accept: 'image/png,image/jpeg,image/webp,image/gif', folder: 'projects',
+      hint: 'Maks 5 foto, 5 MB per foto. Foto pertama = cover di kartu. Geser foto atau pakai tombol ← → untuk mengatur urutan.' },
     { type: 'row', fields: [
       { key: 'published', label: 'Tampilkan di website (published)', type: 'checkbox' },
       { key: 'featured', label: 'Featured (tampil paling atas)', type: 'checkbox' }
@@ -130,6 +131,17 @@
           <input id="${id}" type="url" value="${esc(val ?? '')}" placeholder="…atau tempel URL" style="margin-top:8px">
           ${hint}</div>`;
       }
+      case 'gallery':
+        // isi thumbnail digambar oleh setupGallery()
+        return `<div class="field">
+          <label>${esc(f.label)} <span class="counter" id="${id}-count" data-static></span></label>
+          <div class="gallery" id="${id}"></div>
+          <div class="gallery-add">
+            <input type="file" id="${id}-file" accept="${esc(f.accept)}" multiple data-gallery>
+            <input type="url" id="${id}-url" placeholder="…atau tempel URL foto">
+            <button type="button" class="btn btn-outline btn-sm" id="${id}-add-url">Tambah URL</button>
+          </div>
+          ${hint}</div>`;
       default:
         return `<div class="field">${label}<input id="${id}" type="${f.type === 'email' ? 'email' : f.type === 'url' ? 'url' : 'text'}" value="${esc(val ?? '')}"${req}${max}${ph}${f.list ? ` list="${f.list}"` : ''}>${hint}</div>`;
     }
@@ -145,14 +157,20 @@
     }
 
     // counter karakter
-    $$('.counter', container).forEach((c) => {
+    $$('.counter:not([data-static])', container).forEach((c) => {
       const input = $('#' + c.dataset.for, container);
       const update = () => { c.textContent = `${input.value.length}/${input.maxLength}`; };
       input.addEventListener('input', update); update();
     });
 
-    // upload file → Supabase Storage
-    $$('input[type="file"]', container).forEach((inp) => {
+    // galeri foto project (beberapa foto sekaligus)
+    flatFields(fields).filter((f) => f.type === 'gallery').forEach((f) => {
+      const initial = (values && values[f.key] && values[f.key].length) ? values[f.key] : projectImages(values || {});
+      setupGallery($('#f-' + f.key, container), initial, f);
+    });
+
+    // upload satu file → Supabase Storage
+    $$('input[type="file"]:not([data-gallery])', container).forEach((inp) => {
       inp.addEventListener('change', async () => {
         const file = inp.files[0];
         if (!file) return;
@@ -183,6 +201,7 @@
       if (!el) return;
       switch (f.type) {
         case 'checkbox': out[f.key] = el.checked; break;
+        case 'gallery': out[f.key] = [...el._images]; break;
         case 'number': out[f.key] = el.value === '' ? null : parseInt(el.value, 10); break;
         case 'list': out[f.key] = el.value.split(',').map((s) => s.trim()).filter(Boolean); break;
         case 'lines': out[f.key] = el.value.split('\n').map((s) => s.trim()).filter(Boolean); break;
@@ -224,6 +243,125 @@
   }
 
   /* =================================================================
+     GALLERY — banyak foto per project (maks 5)
+     Daftar foto disimpan di `box._images` (urutan = urutan tampil, indeks 0 = cover).
+     `box._uploaded` mencatat file yang diunggah pada sesi edit ini,
+     supaya yang tidak jadi dipakai bisa dihapus dari Storage.
+     ================================================================= */
+  function setupGallery(box, initial, field) {
+    const max = field.max;
+    const fileInput = $(`#${box.id}-file`);
+    const urlInput = $(`#${box.id}-url`);
+    box._images = [...initial];
+    box._uploaded = [];
+    let dragFrom = null;
+
+    function draw() {
+      const list = box._images;
+      $(`#${box.id}-count`).textContent = `${list.length}/${max} foto`;
+      fileInput.disabled = list.length >= max;
+      $(`#${box.id}-add-url`).disabled = list.length >= max;
+
+      box.hidden = !list.length;
+      box.innerHTML = list.map((url, i) => `
+        <div class="gallery-item" draggable="true" data-index="${i}">
+          <img src="${esc(url)}" alt="Foto ${i + 1}">
+          ${i === 0 ? '<span class="gallery-badge">Cover</span>' : `<span class="gallery-num">${i + 1}</span>`}
+          <button type="button" class="gallery-remove" data-gact="remove" aria-label="Hapus foto ${i + 1}">×</button>
+          <div class="gallery-tools">
+            <button type="button" data-gact="left" ${i === 0 ? 'disabled' : ''} aria-label="Geser ke kiri">←</button>
+            ${i > 0 ? '<button type="button" data-gact="cover" aria-label="Jadikan cover">★</button>' : ''}
+            <button type="button" data-gact="right" ${i === list.length - 1 ? 'disabled' : ''} aria-label="Geser ke kanan">→</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function move(from, to) {
+      if (to < 0 || to >= box._images.length || from === to) return;
+      const [item] = box._images.splice(from, 1);
+      box._images.splice(to, 0, item);
+      draw();
+    }
+
+    // tombol di tiap foto (hapus / geser / jadikan cover)
+    box.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-gact]');
+      if (!btn) return;
+      const i = Number(btn.closest('.gallery-item').dataset.index);
+      switch (btn.dataset.gact) {
+        case 'remove': box._images.splice(i, 1); draw(); break;
+        case 'left': move(i, i - 1); break;
+        case 'right': move(i, i + 1); break;
+        case 'cover': move(i, 0); break;
+      }
+    });
+
+    // geser dengan mouse (drag & drop)
+    box.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.gallery-item');
+      if (!item) return;
+      dragFrom = Number(item.dataset.index);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragFrom)); // Firefox butuh data
+      item.classList.add('dragging');
+    });
+    box.addEventListener('dragover', (e) => { if (dragFrom !== null) e.preventDefault(); });
+    box.addEventListener('drop', (e) => {
+      const item = e.target.closest('.gallery-item');
+      if (!item || dragFrom === null) return;
+      e.preventDefault();
+      move(dragFrom, Number(item.dataset.index));
+    });
+    box.addEventListener('dragend', () => { dragFrom = null; box.querySelectorAll('.dragging').forEach((el) => el.classList.remove('dragging')); });
+
+    // pilih file (boleh beberapa sekaligus)
+    fileInput.addEventListener('change', async () => {
+      const files = [...fileInput.files];
+      fileInput.value = '';
+      const slots = max - box._images.length;
+      if (!files.length) return;
+      if (files.length > slots) toast(`Maksimal ${max} foto. Hanya ${slots} foto pertama yang diunggah.`, true);
+
+      fileInput.disabled = true;
+      let done = 0;
+      for (const file of files.slice(0, slots)) {
+        done += 1;
+        if (!file.type.startsWith('image/')) { toast(`"${file.name}" bukan gambar.`, true); continue; }
+        if (file.size > MAX_UPLOAD) { toast(`"${file.name}" terlalu besar (maks 5 MB).`, true); continue; }
+        toast(`Mengunggah ${done}/${Math.min(files.length, slots)}…`);
+        try {
+          const url = await uploadFile(file, field.folder);
+          box._images.push(url);
+          box._uploaded.push(url);
+          draw();
+        } catch (ex) {
+          console.error(ex);
+          toast('Upload gagal: ' + (ex.message || ex), true);
+        }
+      }
+      toast('Selesai. Atur urutan lalu klik Simpan.');
+      draw();
+    });
+
+    // tambah lewat URL
+    $(`#${box.id}-add-url`).addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      if (!/^https?:\/\//i.test(url)) return toast('URL foto harus diawali https://', true);
+      if (box._images.length >= max) return toast(`Maksimal ${max} foto.`, true);
+      box._images.push(url);
+      urlInput.value = '';
+      draw();
+    });
+
+    draw();
+  }
+
+  /** Foto yang diunggah di sesi edit tetapi tidak jadi dipakai → hapus dari Storage. */
+  function unusedUploads(box, finalImages) {
+    return (box._uploaded || []).filter((url) => !finalImages.includes(url));
+  }
+
+  /* =================================================================
      UI HELPERS
      ================================================================= */
   let toastTimer;
@@ -238,6 +376,9 @@
 
   function friendlyError(error) {
     if (!error) return 'Terjadi kesalahan.';
+    if (error.code === 'PGRST204' || /'images' column|column .*images/i.test(error.message || '')) {
+      return 'Kolom "images" belum ada di database. Jalankan isi file supabase/add-project-images.sql di Supabase → SQL Editor dulu.';
+    }
     if (error.code === '23505') return 'Data dengan nilai yang sama sudah ada (mis. slug project sudah dipakai).';
     if (error.code === '42501' || /row-level security/i.test(error.message)) return 'Akses ditolak. Pastikan akun kamu terdaftar di tabel admin_users.';
     if (error.code === '23514') return 'Ada isian yang tidak memenuhi aturan (mis. terlalu panjang / format salah).';
@@ -277,6 +418,7 @@
     saveBtn.disabled = true; saveBtn.textContent = 'Menyimpan…';
     try {
       await onSave(values);
+      dialogHandler.saved = true; // supaya foto yang baru diunggah tidak ikut dibersihkan
       dialog.close();
       toast('Tersimpan ✓');
     } catch (ex) {
@@ -285,6 +427,13 @@
       alertEl.hidden = false;
     } finally {
       saveBtn.disabled = false; saveBtn.textContent = 'Simpan';
+    }
+  });
+
+  // Editor ditutup tanpa Simpan (Batal / Esc) → hapus foto yang sempat diunggah
+  dialog.addEventListener('close', () => {
+    if (dialogHandler && !dialogHandler.saved) {
+      $$('.gallery', $('#editor-fields')).forEach((box) => (box._uploaded || []).forEach(removeStoredFile));
     }
   });
 
@@ -354,6 +503,7 @@
           <div class="row-title">${esc(p.title)}
             <span class="pill ${p.published ? 'on' : ''}">${p.published ? 'Published' : 'Draft'}</span>
             ${p.featured ? '<span class="pill accent">Featured</span>' : ''}
+            ${projectImages(p).length > 1 ? `<span class="pill">${projectImages(p).length} foto</span>` : ''}
             ${p.status === 'in-progress' ? '<span class="pill warn">In progress</span>' : ''}
           </div>
           <div class="row-sub">${esc([p.category, p.year, (p.tech_stack || []).join(', ')].filter(Boolean).join(' · '))}</div>
@@ -372,8 +522,15 @@
     const isNew = !p;
     const values = p || { status: 'completed', published: true, featured: false, year: new Date().getFullYear() };
     openEditor(isNew ? 'Project baru' : 'Edit project', PROJECT_FIELDS, values, async (v) => {
+      v.image_url = v.images[0] || ''; // cover: dipakai kartu project & halaman lain
       await saveRow('projects', p && p.id, v);
-      if (p && p.image_url && p.image_url !== v.image_url) await removeStoredFile(p.image_url);
+
+      // hapus dari Storage: foto lama yang dibuang + foto baru yang tidak jadi dipakai
+      const removed = [
+        ...projectImages(p || {}).filter((url) => !v.images.includes(url)),
+        ...unusedUploads($('#f-images'), v.images)
+      ];
+      await Promise.all(removed.map(removeStoredFile));
       await fetchTable('projects'); renderProjectsAdmin();
     });
     // slug otomatis mengikuti judul (selama slug belum diubah manual)
@@ -457,7 +614,7 @@
         const name = row.title || row.category || 'item ini';
         if (!confirm(`Hapus "${name}"? Tindakan ini tidak bisa dibatalkan.`)) return;
         await deleteRow(table, id);
-        if (row.image_url) await removeStoredFile(row.image_url);
+        if (table === 'projects') await Promise.all(projectImages(row).map(removeStoredFile));
         await fetchTable(table); cfg.render();
         toast('Dihapus.');
       }

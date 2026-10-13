@@ -125,11 +125,21 @@
       .slice(0, 80);
   }
 
+  /** Maksimal foto per project (harus sama dengan constraint di supabase/add-project-images.sql). */
+  const MAX_PROJECT_IMAGES = 5;
+
+  /** Daftar foto project (foto pertama = cover). Project lama yang hanya punya image_url tetap didukung. */
+  function projectImages(project) {
+    const gallery = (project && project.images || []).filter(Boolean);
+    if (gallery.length) return gallery;
+    return project && project.image_url ? [project.image_url] : [];
+  }
+
   /** Log untuk debugging. Aktifkan dengan membuka situs dengan ?debug=1, lalu buka DevTools → Console. */
   const DEBUG = new URLSearchParams(location.search).has('debug');
   function debug(...args) {
     if (DEBUG) console.log('[portfolio]', ...args);
   }
 
-  window.Portfolio = { esc, safeUrl, richText, loadContent, loadProjectBySlug, STATUS_LABEL, slugify, debug };
+  window.Portfolio = { esc, safeUrl, richText, loadContent, loadProjectBySlug, STATUS_LABEL, slugify, debug, projectImages, MAX_PROJECT_IMAGES };
 })();

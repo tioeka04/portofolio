@@ -86,3 +86,22 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 34
 
 /* sections di admin tidak memakai padding/border section publik */
 .admin-main section.panel { padding: 0; border-top: 0; scroll-margin-top: 0; }
+
+/* ---------- Galeri foto project (maks 5) ---------- */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.gallery[hidden] { display: none; }
+.gallery-item { position: relative; border: 2px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: grab; transition: border-color .15s, transform .15s, opacity .15s; }
+.gallery-item:first-child { border-color: var(--accent); }
+.gallery-item:hover { transform: translateY(-2px); }
+.gallery-item.dragging { opacity: .4; }
+.gallery-item img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; pointer-events: none; }
+.gallery-badge, .gallery-num { position: absolute; left: 6px; top: 6px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: #fff; }
+.gallery-num { background: rgba(0, 0, 0, .55); }
+.gallery-remove { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(0, 0, 0, .65); color: #fff; font-size: 17px; line-height: 1; cursor: pointer; transition: background .15s; }
+.gallery-remove:hover { background: #c0392b; }
+.gallery-tools { display: flex; justify-content: center; gap: 4px; padding: 6px; background: var(--surface); border-top: 1px solid var(--border); }
+.gallery-tools button { min-width: 30px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; }
+.gallery-tools button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.gallery-tools button:disabled { opacity: .35; cursor: not-allowed; }
+.gallery-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gallery-add input[type="url"] { flex: 1 1 200px; }

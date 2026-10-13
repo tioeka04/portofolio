@@ -67,7 +67,9 @@ create table if not exists public.projects (
   highlights   text[] not null default '{}',      -- poin pencapaian / fitur utama
   repo_url     text not null default '',
   demo_url     text not null default '',
-  image_url    text not null default '',
+  image_url    text not null default '',          -- cover (= images[1])
+  images       text[] not null default '{}'        -- galeri foto, maks 5 (foto pertama = cover)
+               check (cardinality(images) <= 5),
   year         int,
   featured     boolean not null default false,
   published    boolean not null default true,
