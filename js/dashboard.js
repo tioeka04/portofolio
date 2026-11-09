@@ -11,6 +11,10 @@
    Fitur lanjutan:
      - Programmatic update : tombol filter mengubah data lalu chart.update()
      - Animation           : opsi `animation` di tiap chart
+     - Hover / sentuh      : elemen yang disentuh menonjol, sisanya meredup
+                             (plugin `hoverFocus`), slice pie bergeser keluar,
+                             titik membesar dengan cincin, tooltip seragam.
+                             Mati otomatis kalau prefers-reduced-motion aktif.
      - Theme-aware         : chart digambar ulang saat dark/light mode berganti
 
    Cara pakai dari main.js:  Dashboard.render(content)
@@ -81,12 +85,96 @@
     return medium;                   // sedang belajar
   }
 
+  /* ---------------------------------------------------------------
+     HOVER / SENTUH
+     Saat satu bar / slice / titik di-hover (atau disentuh di HP),
+     elemen itu tetap penuh warna dan elemen lain meredup.
+     --------------------------------------------------------------- */
+  const reducedMotion = window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : { matches: false };
+
+  const DIM_ALPHA = 0.28;   // transparansi elemen yang tidak sedang disorot
+
+  /**
+   * Bungkus warna (string, array, atau fungsi) supaya meredup kalau ada
+   * elemen lain yang sedang disorot. Hanya untuk chart dengan
+   * `plugins.hoverFocus.dim = true`.
+   */
+  function focusColor(base) {
+    return (ctx) => {
+      let color = base;
+      if (typeof color === 'function') color = color(ctx);
+      if (Array.isArray(color)) color = color[ctx.dataIndex % color.length];
+      const focus = ctx.chart.$focus;
+      if (!focus || ctx.type !== 'data') return color;
+      const isActive = focus.some((a) => a.datasetIndex === ctx.datasetIndex && a.index === ctx.dataIndex);
+      return isActive ? color : Chart.helpers.color(color).alpha(DIM_ALPHA).rgbString();
+    };
+  }
+
+  /** Plugin: catat elemen yang aktif, ubah kursor, lalu animasikan warna. */
+  const hoverFocus = {
+    id: 'hoverFocus',
+    defaults: { dim: false },
+    afterEvent(chart, args, opts) {
+      if (args.replay) return;
+      const active = chart.getActiveElements();
+      chart.canvas.style.cursor = active.length ? 'pointer' : '';
+      if (!opts.dim) return;
+      const key = active.map((a) => `${a.datasetIndex}:${a.index}`).join('|');
+      if (key === (chart.$focusKey || '')) return;
+      chart.$focusKey = key;
+      chart.$focus = active.length ? active : null;
+      chart.update('active');   // warna berubah dengan transisi 'active'
+    }
+  };
+
+  /** Hapus sorotan (dipakai saat jari menyentuh area di luar chart). */
+  function clearFocus(chart) {
+    if (!chart.getActiveElements().length && !chart.$focus) return;
+    chart.setActiveElements([]);
+    chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+    chart.$focusKey = '';
+    chart.$focus = null;
+    chart.update('active');
+  }
+
   /** Setelan umum semua chart. */
   function applyDefaults() {
+    const motion = !reducedMotion.matches;
+    const surface = cssVar('--surface');
+
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
     Chart.defaults.color = cssVar('--chart-text');
     Chart.defaults.borderColor = cssVar('--chart-grid');
-    Chart.defaults.animation = { duration: 800, easing: 'easeOutQuart' };
+    // Object.assign, BUKAN `Chart.defaults.animation = {...}`: Chart.js membaca
+    // daftar kunci objek ini (type, fn, ...). Kalau diganti objek baru,
+    // tipe animasi warna hilang dan hover melempar "this._fn is not a function".
+    Object.assign(Chart.defaults.animation, { duration: motion ? 800 : 0, easing: 'easeOutQuart' });
+
+    // Transisi saat hover / sentuh (warna, ukuran titik, offset slice)
+    Chart.defaults.transitions.active.animation = { duration: motion ? 300 : 0, easing: 'easeOutCubic' };
+
+    // Gaya hover yang seragam untuk semua jenis elemen
+    Object.assign(Chart.defaults.elements.arc, { hoverOffset: 14, hoverBorderColor: surface });
+    Object.assign(Chart.defaults.elements.point, { hoverBorderWidth: 3, hoverBorderColor: surface });
+
+    // Tooltip seragam, ikut tema
+    Object.assign(Chart.defaults.plugins.tooltip, {
+      backgroundColor: surface,
+      titleColor: cssVar('--bs-heading-color'),
+      bodyColor: cssVar('--chart-text'),
+      borderColor: cssVar('--line'),
+      borderWidth: 1,
+      padding: 10,
+      cornerRadius: 8,
+      boxPadding: 4,
+      caretSize: 6,
+      usePointStyle: true,
+      animation: motion ? { duration: 200, easing: 'easeOutQuart' } : false
+    });
+    Chart.defaults.plugins.tooltip.titleFont = { weight: '600' };
   }
 
   /** Buat chart baru; chart lama dengan nama sama dihancurkan dulu. */
@@ -95,11 +183,26 @@
     if (!canvas) return;
     if (charts[name]) charts[name].destroy();
     config.options = Object.assign({ responsive: true, maintainAspectRatio: false }, config.options);
+    config.plugins = [hoverFocus];
     charts[name] = new Chart(canvas, config);
     debug('chart dibuat:', name);
   }
 
-  const baseLegend = () => ({ position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 16 } });
+  /** Legend memakai warna asli, tidak ikut meredup saat ada elemen yang disorot. */
+  function legendLabels(chart) {
+    const type = chart.config.type;
+    const generate = (Chart.overrides[type] && Chart.overrides[type].plugins && Chart.overrides[type].plugins.legend
+      && Chart.overrides[type].plugins.legend.labels && Chart.overrides[type].plugins.legend.labels.generateLabels)
+      || Chart.defaults.plugins.legend.labels.generateLabels;
+    const focus = chart.$focus;
+    chart.$focus = null;
+    try { return generate.call(this, chart); } finally { chart.$focus = focus; }
+  }
+
+  const baseLegend = () => ({
+    position: 'bottom',
+    labels: { usePointStyle: true, boxWidth: 8, padding: 16, generateLabels: legendLabels }
+  });
   const axisTitle = (text) => ({ display: true, text });
 
   /* ---------------------------------------------------------------
@@ -144,13 +247,13 @@
           label: 'Skill level',
           data: items.map((s) => s.level),
           // Scriptable option: fungsi dijalankan untuk SETIAP batang
-          backgroundColor: (ctx) => levelColor(ctx.parsed.y),
+          backgroundColor: focusColor((ctx) => levelColor(ctx.parsed.y)),
           borderRadius: 6,
           maxBarThickness: 44
         }]
       },
       options: {
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: false }, hoverFocus: { dim: true } },
         scales: { y: { min: 0, max: 10, ticks: { stepSize: 2 } }, x: { grid: { display: false } } }
       }
     });
@@ -195,9 +298,9 @@
       type: 'pie',
       data: {
         labels: Object.keys(counts),
-        datasets: [{ data: Object.values(counts), backgroundColor: palette(), borderColor: cssVar('--surface'), borderWidth: 3 }]
+        datasets: [{ data: Object.values(counts), backgroundColor: focusColor(palette()), borderColor: cssVar('--surface'), borderWidth: 3 }]
       },
-      options: { plugins: { legend: baseLegend() } }
+      options: { plugins: { legend: baseLegend(), hoverFocus: { dim: true } } }
     });
   }
 
@@ -213,7 +316,7 @@
       backgroundColor: colors[i],
       tension: 0.35,
       pointRadius: 4,
-      pointHoverRadius: 6
+      pointHoverRadius: 7
     }));
     create('progress', 'chart-progress', {
       type: 'line',
@@ -237,7 +340,7 @@
     const datasets = statuses.map((status, i) => ({
       label: STATUS_LABEL[status],
       data: categories.map((c) => projects.filter((p) => (p.category || 'Other') === c && p.status === status).length),
-      backgroundColor: colors[i],
+      backgroundColor: focusColor(colors[i]),
       borderRadius: 4
     }));
 
@@ -245,7 +348,7 @@
       type: 'bar',
       data: { labels: categories, datasets },
       options: {
-        plugins: { legend: baseLegend() },
+        plugins: { legend: baseLegend(), hoverFocus: { dim: true } },
         scales: {
           x: { stacked: true, grid: { display: false } },
           y: { stacked: true, ticks: { precision: 0 }, title: axisTitle('Projects') }
@@ -263,7 +366,7 @@
     const datasets = groups.map((group, i) => ({
       label: group,
       data: SKILLS.filter((s) => s.group === group).map((s) => ({ x: s.years, y: s.level, name: s.name })),
-      backgroundColor: colors[i],
+      backgroundColor: focusColor(colors[i]),
       pointRadius: 7,
       pointHoverRadius: 10
     }));
@@ -274,6 +377,7 @@
       options: {
         plugins: {
           legend: baseLegend(),
+          hoverFocus: { dim: true },
           tooltip: {
             callbacks: {
               label: (ctx) => `${ctx.raw.name}: ${ctx.raw.x} yrs, level ${ctx.raw.y}`
@@ -317,6 +421,20 @@
   document.addEventListener('themechange', () => {
     if (Object.keys(charts).length) drawCharts();
   });
+
+  // Setelan reduced-motion berubah → gambar ulang dengan/ tanpa animasi
+  if (reducedMotion.addEventListener) {
+    reducedMotion.addEventListener('change', () => {
+      if (Object.keys(charts).length) drawCharts();
+    });
+  }
+
+  // Di HP sorotan tetap tampil setelah disentuh; sentuh di luar chart untuk menutupnya
+  document.addEventListener('touchstart', (event) => {
+    Object.values(charts).forEach((chart) => {
+      if (event.target !== chart.canvas) clearFocus(chart);
+    });
+  }, { passive: true });
 
   window.Dashboard = { render };
 })();

@@ -272,6 +272,11 @@ a:hover { text-decoration: underline; }
 .chart-box { position: relative; height: 260px; }
 .chart-box--tall { height: 300px; }
 .chart-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.9rem; }
+.chart-card { transition: transform .25s, border-color .25s, box-shadow .25s; }
+@media (hover: hover) {
+  .chart-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+}
+.chart-box canvas { -webkit-tap-highlight-color: transparent; }
 .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.35rem; }
 @media (min-width: 992px) {
   .chart-box { height: 300px; }
@@ -317,6 +322,7 @@ textarea.form-control { min-height: 140px; resize: vertical; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .js .reveal { opacity: 1; transform: none; }
+  .chart-card:hover { transform: none; }
 }
 
 /* halaman detail project & 404 */
