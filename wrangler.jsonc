@@ -4,5 +4,7 @@
   "assets": {
     "directory": ".",
     "not_found_handling": "404-page"
-  }
+  },
+  // Wajib ada (boleh kosong) supaya `npx wrangler preview` jalan untuk build preview PR
+  "previews": {}
 }
